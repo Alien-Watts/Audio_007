@@ -1,0 +1,897 @@
+# TEIL_01
+import subprocess
+import sys
+import logging
+import numpy as np
+import scipy.io.wavfile as wav
+import tkinter as tk
+from tkinter import filedialog, simpledialog, messagebox
+import matplotlib.pyplot as plt
+import sounddevice as sd
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+import pandas as pd
+import librosa
+import music21
+from scipy import signal
+from scipy.stats import kurtosis, skew
+
+# Funktion zur Berechnung der logarithmischen statistischen Merkmale
+def calculate_log_statistics(data):
+    """
+    Berechnet die logarithmischen statistischen Merkmale des Audiosignals.
+    """
+    log_data = np.log(data)
+    mean = np.mean(log_data)
+    std_dev = np.std(log_data)
+    kurtosis_value, skewness_value = calculate_kurtosis_and_skewness(log_data)
+    return mean, std_dev, kurtosis_value, skewness_value
+
+# Funktion zur Berechnung der Kurtosis und Schiefe
+def calculate_kurtosis_and_skewness(data):
+    """
+    Berechnet Kurtosis und Schiefe des Audiosignals.
+    """
+    kurtosis_value = kurtosis(data)
+    skewness_value = skew(data)
+    return kurtosis_value, skewness_value
+
+# Modellklasse für Pandas-Daten
+class PandasTableModel(QAbstractTableModel):
+    # ...
+
+# GUI zur Darstellung der Pandas-Integration hinzufügen
+class PandasIntegrationWidget(QWidget):
+    # ...
+
+# GUI zur Darstellung der Kurtosis und Schiefe hinzufügen
+class KurtosisAndSkewnessWidget(QWidget):
+    # ...
+
+# Hauptfenster der Anwendung
+class AudioProcessingApp(QMainWindow):
+
+# Funktion zur Installation von Python-Paketen
+def install_packages(packages):
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", *packages])
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+# Überprüfen und installieren Sie fehlende Bibliotheken
+required_packages = ['sounddevice', 'matplotlib', 'numpy', 'PyQt5', 'spotipy', 'pandas', 'librosa', 'music21']
+missing_packages = [package for package in required_packages if not install_packages([package])]
+
+# TEIL_02
+if missing_packages:
+    print("Folgende Bibliotheken konnten nicht automatisch installiert werden:")
+    for package in missing_packages:
+        print(package)
+    print("Bitte installieren Sie diese manuell mit 'pip install <Paketname>' und führen Sie das Programm erneut aus.")
+    print("Weitere Informationen und Dokumentation zu librosa finden Sie unter:")
+    print("https://librosa.org/doc/main/install.html")
+    print("Weitere Informationen und Dokumentation zu music21 finden Sie unter:")
+    print("http://web.mit.edu/music21/doc/installing/index.html")
+    sys.exit(1)
+
+# Logarithmische Kompression
+def apply_log_compression(data, factor=1.0):
+    return np.log(1 + factor * np.abs(data))
+
+
+# Funktion zur Berechnung von logarithmischen statistischen Merkmalen
+def calculate_log_statistics(data):
+    """
+    Berechnet statistische Merkmale (Durchschnitt, Standardabweichung, Kurtosis, Schiefe)
+    auf den logarithmisch komprimierten Daten.
+    """
+    log_data = apply_log_compression(data, factor=10.0)
+    mean = np.mean(log_data)
+    std_dev = np.std(log_data)
+    kurt = kurtosis(log_data)
+    skewness = skew(log_data)
+
+    return mean, std_dev, kurt, skewness
+
+# Visualisierung des Audiosignals (Waveform)
+def plot_waveform(data, title=None):
+    """
+    Erstellt ein Waveform-Plot des Audiosignals.
+    """
+    plt.plot(data)
+    plt.xlabel('Time')
+    plt.ylabel('Amplitude')
+    if title:
+        plt.title(f'Waveform - {title}')
+    else:
+        plt.title('Waveform')
+    plt.show()
+
+# Teil_03
+# Speichern des Audiosignals in einer Audiodatei
+def save_audio(data, sample_rate, output_file):
+    """
+    Speichert das Audiosignal in einer Audiodatei (WAV-Format).
+    """
+    try:
+        if output_file:
+            wav.write(output_file, sample_rate, data)
+            logger.info("Audio erfolgreich gespeichert.")  # Verbesserung 3: Logging
+        else:
+            logger.info("Speichern abgebrochen.")  # Verbesserung 3: Logging
+    except Exception as e:
+        logger.error("Fehler beim Speichern des Audios: %s", str(e))  # Verbesserung 3: Logging
+        messagebox.showerror("Fehler", f"Fehler beim Speichern des Audios: {str(e)}")
+
+
+# GUI zur Steuerung des Tiefpassfilters hinzufügen
+class FilterSettingsWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+ # Erstellen Sie GUI-Elemente für die Filtereinstellungen
+        self.cutoff_label = QLabel('Cutoff Frequency (Hz):')
+        self.cutoff_input = QLineEdit()
+        self.order_label = QLabel('Filter Order:')
+        self.order_input = QLineEdit()
+        self.apply_button = QPushButton('Apply Filter')
+        self.apply_button.clicked.connect(self.apply_lowpass_filter)
+
+        # Layout für die Filtereinstellungen erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.cutoff_label)
+        layout.addWidget(self.cutoff_input)
+        layout.addWidget(self.order_label)
+        layout.addWidget(self.order_input)
+        layout.addWidget(self.apply_button)
+
+        self.setLayout(layout)
+
+    def apply_lowpass_filter(self):
+        # Hier wird der Tiefpassfilter auf die Audiodaten angewendet
+        cutoff_freq = float(self.cutoff_input.text())
+        filter_order = int(self.order_input.text())
+
+        # Audioverarbeitung: Hier wird der Tiefpassfilter angewendet
+        # processed_data = apply_lowpass_filter(data, sample_rate, cutoff_freq, filter_order)
+
+        # Beispiel: Logarithmische Kompression
+        compressed_data = apply_log_compression(data, factor=10.0)
+
+# Teil_04
+        # Visualisieren Sie die gefilterten Daten
+        plot_waveform(compressed_data, title='Filtered Audio')
+
+    def init_ui(self):
+        # Erstellen Sie GUI-Elemente wie Dropdown-Menüs, Textfelder und Schaltflächen
+        self.sample_rate_label = QLabel('Sample Rate:')
+        self.sample_rate_input = QLineEdit()
+        self.chunk_size_label = QLabel('Chunk Size:')
+        self.chunk_size_input = QLineEdit()
+        self.start_button = QPushButton('Start')
+        self.start_button.clicked.connect(self.start_audio_processing)
+
+
+ # Weitere GUI-Elemente für die Audiovisualisierung, Pandas-Integration usw. erstellen
+
+        # Layout erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.sample_rate_label)
+        layout.addWidget(self.sample_rate_input)
+        layout.addWidget(self.chunk_size_label)
+        layout.addWidget(self.chunk_size_input)
+        layout.addWidget(self.start_button)
+        # Weitere GUI-Elemente zum Layout hinzufügen
+
+        # Filtereinstellungen zur Benutzeroberfläche hinzufügen
+        filter_settings_widget = FilterSettingsWidget()
+        layout.addWidget(filter_settings_widget)
+
+        # Statistische Merkmale hinzufügen
+        self.statistics_label = QLabel('Logarithmic Statistics:')
+        layout.addWidget(self.statistics_label)
+
+        # Buttons zum Berechnen der statistischen Merkmale
+        self.calculate_statistics_button = QPushButton('Calculate Statistics')
+        self.calculate_statistics_button.clicked.connect(self.calculate_statistics)
+        layout.addWidget(self.calculate_statistics_button)
+
+        # Textfeld zur Anzeige der statistischen Merkmale
+        self.statistics_text = QLineEdit()
+        self.statistics_text.setReadOnly(True)
+        layout.addWidget(self.statistics_text)
+
+        # Hauptwidget erstellen und Layout setzen
+        main_widget = QWidget()
+        main_widget.setLayout(layout)
+        self.setCentralWidget(main_widget)
+
+# Teil_05
+    def start_audio_processing(self):
+        # Hier wird die Audioverarbeitung gestartet, ähnlich wie in Ihrem ursprünglichen Code
+        # Sie können die ausgewählten Sample-Rate- und Chunk-Größe-Werte von den GUI-Elementen abrufen
+        sample_rate = int(self.sample_rate_input.text())
+        chunk_size = int(self.chunk_size_input.text())
+
+        # Fügen Sie hier den Code für die Audioverarbeitung und die Visualisierung hinzu
+        # Pandas-Integration kann hier erfolgen, um Ergebnisse anzuzeigen
+
+    def calculate_statistics(self):
+        # Hier werden die logarithmischen statistischen Merkmale berechnet und angezeigt
+        mean, std_dev, kurt, skewness = calculate_log_statistics(data)
+        statistics_str = f"Mean: {mean:.2f}, Std Dev: {std_dev:.2f}, Kurtosis: {kurt:.2f}, Skewness: {skewness:.2f}"
+        self.statistics_text.setText(statistics_str)
+
+# Fourier-Transformation
+def apply_fourier_transform(data):
+    """
+    Wendet eine Fourier-Transformation auf die Audiodaten an und gibt das Spektrum zurück.
+    """
+    spectrum = np.fft.fft(data)
+    frequencies = np.fft.fftfreq(len(data))
+    return frequencies, spectrum
+
+# GUI zur Darstellung des Spektrums hinzufügen
+class FourierTransformWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # Erstellen Sie GUI-Elemente für die Fourier-Transformation
+        self.calculate_button = QPushButton('Calculate Fourier Transform')
+        self.calculate_button.clicked.connect(self.calculate_fourier_transform)
+
+        # Layout für die Fourier-Transformation erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.calculate_button)
+
+        self.setLayout(layout)
+
+    def calculate_fourier_transform(self):
+        # Hier wird die Fourier-Transformation auf die Audiodaten angewendet und das Spektrum dargestellt
+        frequencies, spectrum = apply_fourier_transform(data)
+        plt.plot(frequencies, np.abs(spectrum))
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title('Fourier Transform')
+        plt.show()
+
+# Teil_06
+    def init_ui(self):
+        # Erstellen Sie GUI-Elemente wie Dropdown-Menüs, Textfelder und Schaltflächen
+        self.sample_rate_label = QLabel('Sample Rate:')
+        self.sample_rate_input = QLineEdit()
+        self.chunk_size_label = QLabel('Chunk Size:')
+        self.chunk_size_input = QLineEdit()
+        self.start_button = QPushButton('Start')
+        self.start_button.clicked.connect(self.start_audio_processing)
+      
+# Weitere GUI-Elemente für die Audiovisualisierung, Pandas-Integration usw. erstellen
+
+        # Layout erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.sample_rate_label)
+        layout.addWidget(self.sample_rate_input)
+        layout.addWidget(self.chunk_size_label)
+        layout.addWidget(self.chunk_size_input)
+        layout.addWidget(self.start_button)
+        # Weitere GUI-Elemente zum Layout hinzufügen
+
+        # Filtereinstellungen zur Benutzeroberfläche hinzufügen
+        filter_settings_widget = FilterSettingsWidget()
+        layout.addWidget(filter_settings_widget)
+
+        # Statistische Merkmale hinzufügen
+        self.statistics_label = QLabel('Logarithmic Statistics:')
+        layout.addWidget(self.statistics_label)
+
+        # Buttons zum Berechnen der statistischen Merkmale
+        self.calculate_statistics_button = QPushButton('Calculate Statistics')
+        self.calculate_statistics_button.clicked.connect(self.calculate_statistics)
+        layout.addWidget(self.calculate_statistics_button)
+
+        # Textfeld zur Anzeige der statistischen Merkmale
+        self.statistics_text = QLineEdit()
+        self.statistics_text.setReadOnly(True)
+        layout.addWidget(self.statistics_text)
+
+        # Fourier-Transformation zur Benutzeroberfläche hinzufügen
+        fourier_transform_widget = FourierTransformWidget()
+        layout.addWidget(fourier_transform_widget)
+
+        # Hauptwidget erstellen und Layout setzen
+        main_widget = QWidget()
+        main_widget.setLayout(layout)
+        self.setCentralWidget(main_widget)
+
+# Teil_07
+    def start_audio_processing(self):
+        # Hier wird die Audioverarbeitung gestartet, ähnlich wie in Ihrem ursprünglichen Code
+        # Sie können die ausgewählten Sample-Rate- und Chunk-Größe-Werte von den GUI-Elementen abrufen
+        sample_rate = int(self.sample_rate_input.text())
+        chunk_size = int(self.chunk_size_input.text())
+
+        # Fügen Sie hier den Code für die Audioverarbeitung und die Visualisierung hinzu
+        # Pandas-Integration kann hier erfolgen, um Ergebnisse anzuzeigen
+
+    def calculate_statistics(self):
+        # Hier werden die logarithmischen statistischen Merkmale berechnet und angezeigt
+        mean, std_dev, kurt, skewness = calculate_log_statistics(data)
+        statistics_str = f"Mean: {mean:.2f}, Std Dev: {std_dev:.2f}, Kurtosis: {kurt:.2f}, Skewness: {skewness:.2f}"
+        self.statistics_text.setText(statistics_str)
+
+# Berechnung des Kurtosis und Skewness auf den logarithmisch komprimierten Daten
+def calculate_log_statistics(data):
+    """
+    Berechnet statistische Merkmale (Durchschnitt, Standardabweichung, Kurtosis, Skewness) auf den logarithmisch komprimierten Daten.
+    """
+    log_data = apply_log_compression(data, factor=10.0)  # Anpassen des Faktors nach Bedarf
+    mean = np.mean(log_data)
+    std_dev = np.std(log_data)
+    kurtosis = np.kurtosis(log_data)
+    skewness = np.skew(log_data)
+
+    return mean, std_dev, kurtosis, skewness  # Rückgabe der berechneten statistischen Merkmale
+
+
+# Teil_08
+# Fourier-Transformation
+def apply_fourier_transform(data):
+    """
+    Wendet eine Fourier-Transformation auf die Audiodaten an und gibt das Spektrum zurück.
+    """
+    spectrum = np.fft.fft(data)
+    frequencies = np.fft.fftfreq(len(data))
+    return frequencies, spectrum
+
+# GUI zur Darstellung des Spektrums hinzufügen
+class FourierTransformWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # Erstellen Sie GUI-Elemente für die Fourier-Transformation
+        self.calculate_button = QPushButton('Calculate Fourier Transform')
+        self.calculate_button.clicked.connect(self.calculate_fourier_transform)
+
+        # Layout für die Fourier-Transformation erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.calculate_button)
+
+        self.setLayout(layout)
+
+    def calculate_fourier_transform(self):
+        # Hier wird die Fourier-Transformation auf die Audiodaten angewendet und das Spektrum dargestellt
+        frequencies, spectrum = apply_fourier_transform(data)
+        plt.plot(frequencies, np.abs(spectrum))
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title('Fourier Transform')
+        plt.show()
+
+        # Initialisieren Sie die Benutzeroberfläche
+        self.init_ui()
+
+    def init_ui(self):
+        # Erstellen Sie GUI-Elemente wie Dropdown-Menüs, Textfelder und Schaltflächen
+        self.sample_rate_label = QLabel('Sample Rate:')
+        self.sample_rate_input = QLineEdit()
+        self.chunk_size_label = QLabel('Chunk Size:')
+        self.chunk_size_input = QLineEdit()
+        self.start_button = QPushButton('Start')
+        self.start_button.clicked.connect(self.start_audio_processing)
+# Teil_09
+        # Weitere GUI-Elemente für die Audiovisualisierung, Pandas-Integration usw. erstellen
+
+        # Layout erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.sample_rate_label)
+        layout.addWidget(self.sample_rate_input)
+        layout.addWidget(self.chunk_size_label)
+        layout.addWidget(self.chunk_size_input)
+        layout.addWidget(self.start_button)
+        # Weitere GUI-Elemente zum Layout hinzufügen
+
+        # Filtereinstellungen zur Benutzeroberfläche hinzufügen
+        filter_settings_widget = FilterSettingsWidget()
+        layout.addWidget(filter_settings_widget)
+
+        # Statistische Merkmale hinzufügen
+        self.statistics_label = QLabel('Logarithmic Statistics:')
+        layout.addWidget(self.statistics_label)
+
+        # Buttons zum Berechnen der statistischen Merkmale
+        self.calculate_statistics_button = QPushButton('Calculate Statistics')
+        self.calculate_statistics_button.clicked.connect(self.calculate_statistics)
+        layout.addWidget(self.calculate_statistics_button)
+
+        # Textfeld zur Anzeige der statistischen Merkmale
+        self.statistics_text = QLineEdit()
+        self.statistics_text.setReadOnly(True)
+        layout.addWidget(self.statistics_text)
+
+        # Fourier-Transformation zur Benutzeroberfläche hinzufügen
+        fourier_transform_widget = FourierTransformWidget()
+        layout.addWidget(fourier_transform_widget)
+
+        # Hauptwidget erstellen und Layout setzen
+        main_widget = QWidget()
+        main_widget.setLayout(layout)
+        self.setCentralWidget(main_widget)
+
+    def start_audio_processing(self):
+        # Hier wird die Audioverarbeitung gestartet, ähnlich wie in Ihrem ursprünglichen Code
+        # Sie können die ausgewählten Sample-Rate- und Chunk-Größe-Werte von den GUI-Elementen abrufen
+        sample_rate = int(self.sample_rate_input.text())
+        chunk_size = int(self.chunk_size_input.text())
+
+# Teil_10
+        # Fügen Sie hier den Code für die Audioverarbeitung und die Visualisierung hinzu
+        # Pandas-Integration kann hier erfolgen, um Ergebnisse anzuzeigen
+
+    def calculate_statistics(self):
+        # Hier werden die logarithmischen statistischen Merkmale berechnet und angezeigt
+        mean, std_dev, kurtosis, skewness = calculate_log_statistics(data)
+        statistics_str = f"Mean: {mean:.2f}, Std Dev: {std_dev:.2f}, Kurtosis: {kurtosis:.2f}, Skewness: {skewness:.2f}"
+        self.statistics_text.setText(statistics_str)
+
+# Funktion zur Berechnung der Energie in einem bestimmten Zeitintervall
+def calculate_energy_in_time_interval(data, sample_rate, start_time, end_time):
+    """
+    Berechnet die Energie des Audiosignals in einem bestimmten Zeitintervall.
+    """
+    start_sample = int(start_time * sample_rate)
+    end_sample = int(end_time * sample_rate)
+    if start_sample < 0:
+        start_sample = 0
+    if end_sample > len(data):
+        end_sample = len(data)
+
+    interval_data = data[start_sample:end_sample]
+    energy = np.sum(np.square(interval_data))
+    return energy
+
+# GUI zur Darstellung der Energie hinzufügen
+class EnergyCalculationWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # Erstellen Sie GUI-Elemente für die Energieberechnung
+        self.start_time_label = QLabel('Start Time (s):')
+        self.start_time_input = QLineEdit()
+        self.end_time_label = QLabel('End Time (s):')
+        self.end_time_input = QLineEdit()
+        self.calculate_button = QPushButton('Calculate Energy')
+        self.calculate_button.clicked.connect(self.calculate_energy)
+
+        # Layout für die Energieberechnung erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.start_time_label)
+        layout.addWidget(self.start_time_input)
+        layout.addWidget(self.end_time_label)
+        layout.addWidget(self.end_time_input)
+        layout.addWidget(self.calculate_button)
+
+        self.setLayout(layout)
+
+    def calculate_energy(self):
+
+# Teil_11
+        # Hier wird die Energieberechnung auf die Audiodaten angewendet und das Ergebnis angezeigt
+        start_time = float(self.start_time_input.text())
+        end_time = float(self.end_time_input.text())
+        energy = calculate_energy_in_time_interval(data, sample_rate, start_time, end_time)
+        energy_str = f"Energy in Time Interval: {energy:.2f}"
+        QMessageBox.information(self, 'Energy Calculation', energy_str)
+
+# Hauptfenster der Anwendung
+class AudioProcessingApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Initialisieren Sie die Benutzeroberfläche
+        self.init_ui()
+
+    def init_ui(self):
+        # Erstellen Sie GUI-Elemente wie Dropdown-Menüs, Textfelder und Schaltflächen
+        self.sample_rate_label = QLabel('Sample Rate:')
+        self.sample_rate_input = QLineEdit()
+        self.chunk_size_label = QLabel('Chunk Size:')
+        self.chunk_size_input = QLineEdit()
+        self.start_button = QPushButton('Start')
+        self.start_button.clicked.connect(self.start_audio_processing)
+
+        # Weitere GUI-Elemente für die Audiovisualisierung, Pandas-Integration usw. erstellen
+
+        # Layout erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.sample_rate_label)
+        layout.addWidget(self.sample_rate_input)
+        layout.addWidget(self.chunk_size_label)
+        layout.addWidget(self.chunk_size_input)
+        layout.addWidget(self.start_button)
+        # Weitere GUI-Elemente zum Layout hinzufügen
+
+        # Filtereinstellungen zur Benutzeroberfläche hinzufügen
+        filter_settings_widget = FilterSettingsWidget()
+        layout.addWidget(filter_settings_widget)
+
+        # Statistische Merkmale hinzufügen
+        self.statistics_label = QLabel('Logarithmic Statistics:')
+        layout.addWidget(self.statistics_label)
+
+
+
+
+
+
+# Teil_12
+        # Buttons zum Berechnen der statistischen Merkmale
+        self.calculate_statistics_button = QPushButton('Calculate Statistics')
+        self.calculate_statistics_button.clicked.connect(self.calculate_statistics)
+        layout.addWidget(self.calculate_statistics_button)
+
+        # Textfeld zur Anzeige der statistischen Merkmale
+        self.statistics_text = QLineEdit()
+        self.statistics_text.setReadOnly(True)
+        layout.addWidget(self.statistics_text)
+
+        # Fourier-Transformation zur Benutzeroberfläche hinzufügen
+        fourier_transform_widget = FourierTransformWidget()
+        layout.addWidget(fourier_transform_widget)
+
+        # Energieberechnung zur Benutzeroberfläche hinzufügen
+        energy_calculation_widget = EnergyCalculationWidget()
+        layout.addWidget(energy_calculation_widget)
+
+        # Hauptwidget erstellen und Layout setzen
+        main_widget = QWidget()
+        main_widget.setLayout(layout)
+        self.setCentralWidget(main_widget)
+
+    def start_audio_processing(self):
+        # Hier wird die Audioverarbeitung gestartet, ähnlich wie in Ihrem ursprünglichen Code
+        # Sie können die ausgewählten Sample-Rate- und Chunk-Größe-Werte von den GUI-Elementen abrufen
+        sample_rate = int(self.sample_rate_input.text())
+        chunk_size = int(self.chunk_size_input.text())
+
+        # Fügen Sie hier den Code für die Audioverarbeitung und die Visualisierung hinzu
+        # Pandas-Integration kann hier erfolgen, um Ergebnisse anzuzeigen
+
+    def calculate_statistics(self):
+        # Hier werden die logarithmischen statistischen Merkmale berechnet und angezeigt
+        mean, std_dev, kurtosis, skewness = calculate_log_statistics(data)
+        statistics_str = f"Mean: {mean:.2f}, Std Dev: {std_dev:.2f}, Kurtosis: {kurtosis:.2f}, Skewness: {skewness:.2f}"
+        self.statistics_text.setText(statistics_str)
+
+# Teil_13
+# Funktion zur Berechnung der Kurtosis und Schiefe
+def calculate_kurtosis_and_skewness(data):
+    """
+    Berechnet Kurtosis und Schiefe des Audiosignals.
+    """
+    kurtosis_value = np.kurtosis(data)
+    skewness_value = np.skew(data)
+    return kurtosis_value, skewness_value
+
+# GUI zur Darstellung der Kurtosis und Schiefe hinzufügen
+class KurtosisAndSkewnessWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # Erstellen Sie GUI-Elemente für die Berechnung von Kurtosis und Schiefe
+        self.calculate_button = QPushButton('Calculate Kurtosis and Skewness')
+        self.calculate_button.clicked.connect(self.calculate_kurtosis_and_skewness)
+
+        # Layout für die Berechnung von Kurtosis und Schiefe erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.calculate_button)
+
+        self.setLayout(layout)
+
+    def calculate_kurtosis_and_skewness(self):
+        # Hier wird die Berechnung von Kurtosis und Schiefe auf die Audiodaten angewendet und das Ergebnis angezeigt
+        kurtosis, skewness = calculate_kurtosis_and_skewness(data)
+        kurtosis_str = f"Kurtosis: {kurtosis:.2f}"
+        skewness_str = f"Skewness: {skewness:.2f}"
+        QMessageBox.information(self, 'Kurtosis and Skewness Calculation', f"{kurtosis_str}\n{skewness_str}")
+
+# Hauptfenster der Anwendung
+class AudioProcessingApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Initialisieren Sie die Benutzeroberfläche
+        self.init_ui()
+
+    def init_ui(self):
+        # Erstellen Sie GUI-Elemente wie Dropdown-Menüs, Textfelder und Schaltflächen
+        self.sample_rate_label = QLabel('Sample Rate:')
+        self.sample_rate_input = QLineEdit()
+        self.chunk_size_label = QLabel('Chunk Size:')
+        self.chunk_size_input = QLineEdit()
+        self.start_button = QPushButton('Start')
+        self.start_button.clicked.connect(self.start_audio_processing)
+
+# Teil_14
+  # Weitere GUI-Elemente für die Audiovisualisierung, Pandas-Integration usw. erstellen
+
+        # Layout erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.sample_rate_label)
+        layout.addWidget(self.sample_rate_input)
+        layout.addWidget(self.chunk_size_label)
+        layout.addWidget(self.chunk_size_input)
+        layout.addWidget(self.start_button)
+        # Weitere GUI-Elemente zum Layout hinzufügen
+
+        # Filtereinstellungen zur Benutzeroberfläche hinzufügen
+        filter_settings_widget = FilterSettingsWidget()
+        layout.addWidget(filter_settings_widget)
+
+        # Statistische Merkmale hinzufügen
+        self.statistics_label = QLabel('Logarithmic Statistics:')
+        layout.addWidget(self.statistics_label)
+
+        # Buttons zum Berechnen der statistischen Merkmale
+        self.calculate_statistics_button = QPushButton('Calculate Statistics')
+        self.calculate_statistics_button.clicked.connect(self.calculate_statistics)
+        layout.addWidget(self.calculate_statistics_button)
+
+        # Textfeld zur Anzeige der statistischen Merkmale
+        self.statistics_text = QLineEdit()
+        self.statistics_text.setReadOnly(True)
+        layout.addWidget(self.statistics_text)
+
+        # Fourier-Transformation zur Benutzeroberfläche hinzufügen
+        fourier_transform_widget = FourierTransformWidget()
+        layout.addWidget(fourier_transform_widget)
+
+        # Energieberechnung zur Benutzeroberfläche hinzufügen
+        energy_calculation_widget = EnergyCalculationWidget()
+        layout.addWidget(energy_calculation_widget)
+
+        # Kurtosis und Schiefe zur Benutzeroberfläche hinzufügen
+        kurtosis_and_skewness_widget = KurtosisAndSkewnessWidget()
+        layout.addWidget(kurtosis_and_skewness_widget)
+
+        # Hauptwidget erstellen und Layout setzen
+        main_widget = QWidget()
+        main_widget.setLayout(layout)
+        self.setCentralWidget(main_widget)
+
+# Teil_15
+    def start_audio_processing(self):
+        # Hier wird die Audioverarbeitung gestartet, ähnlich wie in Ihrem ursprünglichen Code
+        # Sie können die ausgewählten Sample-Rate- und Chunk-Größe-Werte von den GUI-Elementen abrufen
+        sample_rate = int(self.sample_rate_input.text())
+        chunk_size = int(self.chunk_size_input.text())
+
+        # Fügen Sie hier den Code für die Audioverarbeitung und die Visualisierung hinzu
+        # Pandas-Integration kann hier erfolgen, um Ergebnisse anzuzeigen
+
+    def calculate_statistics(self):
+        # Hier werden die logarithmischen statistischen Merkmale berechnet und angezeigt
+        mean, std_dev, kurtosis, skewness = calculate_log_statistics(data)
+        statistics_str = f"Mean: {mean:.2f}, Std Dev: {std_dev:.2f}, Kurtosis: {kurtosis:.2f}, Skewness: {skewness:.2f}"
+        self.statistics_text.setText(statistics_str)
+
+# Funktion zur Berechnung der Kurtosis und Schiefe
+def calculate_kurtosis_and_skewness(data):
+    """
+    Berechnet Kurtosis und Schiefe des Audiosignals.
+    """
+    kurtosis_value = np.kurtosis(data)
+    skewness_value = np.skew(data)
+    return kurtosis_value, skewness_value
+
+# GUI zur Darstellung der Kurtosis und Schiefe hinzufügen
+class KurtosisAndSkewnessWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # Erstellen Sie GUI-Elemente für die Berechnung von Kurtosis und Schiefe
+        self.calculate_button = QPushButton('Calculate Kurtosis and Skewness')
+        self.calculate_button.clicked.connect(self.calculate_kurtosis_and_skewness)
+
+        # Layout für die Berechnung von Kurtosis und Schiefe erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.calculate_button)
+
+        self.setLayout(layout)
+
+# Teil_16    
+def calculate_kurtosis_and_skewness(self):
+        # Hier wird die Berechnung von Kurtosis und Schiefe auf die Audiodaten angewendet und das Ergebnis angezeigt
+        kurtosis, skewness = calculate_kurtosis_and_skewness(data)
+        kurtosis_str = f"Kurtosis: {kurtosis:.2f}"
+        skewness_str = f"Skewness: {skewness:.2f}"
+        QMessageBox.information(self, 'Kurtosis and Skewness Calculation', f"{kurtosis_str}\n{skewness_str}")
+
+# Hauptfenster der Anwendung
+class AudioProcessingApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Initialisieren Sie die Benutzeroberfläche
+        self.init_ui()
+
+    def init_ui(self):
+        # Erstellen Sie GUI-Elemente wie Dropdown-Menüs, Textfelder und Schaltflächen
+        self.sample_rate_label = QLabel('Sample Rate:')
+        self.sample_rate_input = QLineEdit()
+        self.chunk_size_label = QLabel('Chunk Size:')
+        self.chunk_size_input = QLineEdit()
+        self.start_button = QPushButton('Start')
+        self.start_button.clicked.connect(self.start_audio_processing)
+
+        # Weitere GUI-Elemente für die Audiovisualisierung, Pandas-Integration usw. erstellen
+
+        # Layout erstellen
+        layout = QVBoxLayout()
+        layout.addWidget(self.sample_rate_label)
+        layout.addWidget(self.sample_rate_input)
+        layout.addWidget(self.chunk_size_label)
+        layout.addWidget(self.chunk_size_input)
+        layout.addWidget(self.start_button)
+        # Weitere GUI-Elemente zum Layout hinzufügen
+
+        # Filtereinstellungen zur Benutzeroberfläche hinzufügen
+        filter_settings_widget = FilterSettingsWidget()
+        layout.addWidget(filter_settings_widget)
+
+        # Statistische Merkmale hinzufügen
+        self.statistics_label = QLabel('Logarithmic Statistics:')
+        layout.addWidget(self.statistics_label)
+
+# Teil_17
+        # Buttons zum Berechnen der statistischen Merkmale
+        self.calculate_statistics_button = QPushButton('Calculate Statistics')
+        self.calculate_statistics_button.clicked.connect(self.calculate_statistics)
+        layout.addWidget(self.calculate_statistics_button)
+
+        # Textfeld zur Anzeige der statistischen Merkmale
+        self.statistics_text = QLineEdit()
+        self.statistics_text.setReadOnly(True)
+        layout.addWidget(self.statistics_text)
+
+        # Fourier-Transformation zur Benutzeroberfläche hinzufügen
+        fourier_transform_widget = FourierTransformWidget()
+        layout.addWidget(fourier_transform_widget)
+
+        # Energieberechnung zur Benutzeroberfläche hinzufügen
+        energy_calculation_widget = EnergyCalculationWidget()
+        layout.addWidget(energy_calculation_widget)
+
+        # Kurtosis und Schiefe zur Benutzeroberfläche hinzufügen
+        kurtosis_and_skewness_widget = KurtosisAndSkewnessWidget()
+        layout.addWidget(kurtosis_and_skewness_widget)
+
+        # Hauptwidget erstellen und Layout setzen
+        main_widget = QWidget()
+        main_widget.setLayout(layout)
+        self.setCentralWidget(main_widget)
+
+    def start_audio_processing(self):
+        # Hier wird die Audioverarbeitung gestartet, ähnlich wie in Ihrem ursprünglichen Code
+        # Sie können die ausgewählten Sample-Rate- und Chunk-Größe-Werte von den GUI-Elementen abrufen
+        sample_rate = int(self.sample_rate_input.text())
+        chunk_size = int(self.chunk_size_input.text())
+
+        # Fügen Sie hier den Code für die Audioverarbeitung und die Visualisierung hinzu
+        # Pandas-Integration kann hier erfolgen, um Ergebnisse anzuzeigen
+
+    def calculate_statistics(self):
+        # Hier werden die logarithmischen statistischen Merkmale berechnet und angezeigt
+        mean, std_dev, kurtosis, skewness = calculate_log_statistics(data)
+        statistics_str = f"Mean: {mean:.2f}, Std Dev: {std_dev:.2f}, Kurtosis: {kurtosis:.2f}, Skewness: {skewness:.2f}"
+        self.statistics_text.setText(statistics_str)
+
+# Teil_18
+# Funktion zur Berechnung der logarithmischen statistischen Merkmale
+def calculate_log_statistics(data):
+    """
+    Berechnet die logarithmischen statistischen Merkmale des Audiosignals.
+    """
+    log_data = np.log(data)
+    mean = np.mean(log_data)
+    std_dev = np.std(log_data)
+    kurtosis_value, skewness_value = calculate_kurtosis_and_skewness(log_data)
+    return mean, std_dev, kurtosis_value, skewness_value
+
+# Funktion zur Berechnung der Kurtosis und Schiefe
+def calculate_kurtosis_and_skewness(data):
+    """
+    Berechnet Kurtosis und Schiefe des Audiosignals.
+    """
+    kurtosis_value = kurtosis(data)
+    skewness_value = skew(data)
+    return kurtosis_value, skewness_value
+
+# Modellklasse für Pandas-Daten
+class PandasTableModel(QAbstractTableModel):
+    # ...
+
+# GUI zur Darstellung der Pandas-Integration hinzufügen
+class PandasIntegrationWidget(QWidget):
+    # ...
+
+# GUI zur Darstellung der Kurtosis und Schiefe hinzufügen
+class KurtosisAndSkewnessWidget(QWidget):
+    # ...
+
+# Hauptfenster der Anwendung
+class AudioProcessingApp(QMainWindow):
+    # ...
+
+# Funktion zur Berechnung der logarithmischen statistischen Merkmale
+def calculate_log_statistics(data):
+    """
+    Berechnet die logarithmischen statistischen Merkmale des Audiosignals.
+    """
+    log_data = np.log(data)
+    mean = np.mean(log_data)
+    std_dev = np.std(log_data)
+    kurtosis_value, skewness_value = calculate_kurtosis_and_skewness(log_data)
+    return mean, std_dev, kurtosis_value, skewness_value
+
+# Funktion zur Berechnung der Kurtosis und Schiefe
+def calculate_kurtosis_and_skewness(data):
+    """
+    Berechnet Kurtosis und Schiefe des Audiosignals.
+    """
+    kurtosis_value = kurtosis(data)
+    skewness_value = skew(data)
+    return kurtosis_value, skewness_value
+
+# Modellklasse für Pandas-Daten
+class PandasTableModel(QAbstractTableModel):
+    # ...
+
+# Teil_19
+# GUI zur Darstellung der Pandas-Integration hinzufügen
+class PandasIntegrationWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.label = QLabel("Pandas-Integration")
+        self.layout.addWidget(self.label)
+        self.table_model = PandasTableModel()
+        self.table_view = QTableView()
+        self.table_view.setModel(self.table_model)
+        self.layout.addWidget(self.table_view)
+        self.setLayout(self.layout)
+
+
+# Teil_20 
+# GUI zur Darstellung der Kurtosis und Schiefe hinzufügen
+class KurtosisAndSkewnessWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.label = QLabel("Kurtosis and Skewness")
+        self.layout.addWidget(self.label)
+        self.slider = QSlider()
+        self.slider.setOrientation(Qt.Horizontal)
+        self.layout.addWidget(self.slider)
+        self.line_edit = QLineEdit()
+        self.layout.addWidget(self.line_edit)
+        self.setLayout(self.layout)
+
+# Hauptfenster der Anwendung
+class AudioProcessingApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Audio Processing App")
+        self.widget1 = PandasIntegrationWidget()
+        self.setCentralWidget(self.widget1)
+        self.widget2 = KurtosisAndSkewnessWidget()
+        self.addDockWidget(Qt.RightDockWidgetArea, self.widget2)
+
+# Anwendung starten
+if __name__ == '__main__':
+    app = QApplication([])
+    window = AudioProcessingApp()
+    window.show()
+    app.exec_()
+
