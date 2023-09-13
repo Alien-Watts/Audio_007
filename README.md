@@ -17,7 +17,7 @@ Jede AI verschluckt Teile des Codes und/oder kann sich nicht daran erinnern.
 Es soll open source werden und somit für alle nutzbar sein – Evtl. auch mal als Browser-Plugin
 Ein VST wäre natürlich der Hammer schlechthin ;-)
 
-Helft liebe Community - Ihr seid meine letzte Hoffnung…
+Helft mir liebe Community - Ihr seid meine letzte Hoffnung…
 ------------------------------------------------------------------------------------------------
 Hello to all those who know much more about coding than I do;
 ... with this code I try to write a tool that detects the key of an audio stream
